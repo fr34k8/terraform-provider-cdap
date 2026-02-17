@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -37,6 +38,13 @@ func resourceProfile() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 				Description: "The name of the profile.",
+			},
+			"system": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				ForceNew:    true,
+				Default:     false,
+				Description: "Whether this is a system-level profile. If true, the namespace field is ignored.",
 			},
 			"namespace": {
 				Type:        schema.TypeString,
@@ -128,6 +136,18 @@ type property struct {
 	IsEditable bool   `json:"isEditable"`
 }
 
+// Helper to determine the correct API path based on scope
+func profilePath(d *schema.ResourceData, suffixes ...string) string {
+	basePath := "/v3/profiles"
+
+	if !d.Get("system").(bool) {
+		namespace := d.Get("namespace").(string)
+		basePath = fmt.Sprintf("/v3/namespaces/%s/profiles", namespace)
+	}
+
+	return path.Join(append([]string{basePath}, suffixes...)...)
+}
+
 func resourceProfileCreate(d *schema.ResourceData, m interface{}) error {
 	config := m.(*Config)
 	name := d.Get("name").(string)
@@ -151,7 +171,7 @@ func resourceProfileCreate(d *schema.ResourceData, m interface{}) error {
 	}
 	prof.Provisioner = prov
 
-	addr := urlJoin(config.host, "/v3/namespaces", d.Get("namespace").(string), "/profiles", name)
+	addr := urlJoin(config.host, profilePath(d, name))
 
 	b, err := json.Marshal(prof)
 	if err != nil {
@@ -177,7 +197,7 @@ func resourceProfileDelete(d *schema.ResourceData, m interface{}) error {
 	config := m.(*Config)
 	name := d.Get("name").(string)
 
-	addr := urlJoin(config.host, "/v3/namespaces", d.Get("namespace").(string), "/profiles", name)
+	addr := urlJoin(config.host, profilePath(d, name))
 
 	// Disable the profile first.
 	req, err := http.NewRequest(http.MethodPost, urlJoin(addr, "/disable"), nil)
@@ -200,14 +220,21 @@ func resourceProfileExists(d *schema.ResourceData, m interface{}) (bool, error) 
 	config := m.(*Config)
 	name := d.Get("name").(string)
 
-	namespace := d.Get("namespace").(string)
-	if exists, err := namespaceExists(config, namespace); err != nil {
-		return false, fmt.Errorf("failed to check for existence of namespace %q: %v", namespace, err)
-	} else if !exists {
-		return false, nil
+	// Namespace existence check only applies to non-system profiles
+	if !d.Get("system").(bool) {
+		namespace := d.Get("namespace").(string)
+
+		exists, err := namespaceExists(config, namespace)
+		if err != nil {
+			return false, fmt.Errorf("failed to check for existence of namespace %q: %w", namespace, err)
+		}
+
+		if !exists {
+			return false, nil
+		}
 	}
 
-	addr := urlJoin(config.host, "/v3/namespaces", namespace, "/profiles")
+	addr := urlJoin(config.host, profilePath(d))
 
 	req, err := http.NewRequest(http.MethodGet, addr, nil)
 	if err != nil {
