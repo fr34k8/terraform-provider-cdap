@@ -18,12 +18,15 @@ package cdap
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"slices"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"golang.org/x/oauth2"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -85,9 +88,17 @@ func configureProvider(version string) schema.ConfigureFunc {
 		}
 		httpClient.Timeout = 30 * time.Minute
 
-		storageClient, err := storage.NewClient(ctx, option.WithScopes(storage.ScopeReadOnly), option.WithoutAuthentication())
+		opts := []option.ClientOption{option.WithScopes(storage.ScopeReadOnly)}
+		storageClient, err := storage.NewClient(ctx, opts...)
 		if err != nil {
-			return nil, err
+			log.Printf("Authenticated client failed : %v, falling back to unauthenticated...", err)
+			if isGoogleAPIErrorWithCode(err, http.StatusForbidden, http.StatusUnauthorized) {
+				opts = append(opts, option.WithoutAuthentication())
+				storageClient, err = storage.NewClient(ctx, opts...)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to create storage client: %w", err)
+			}
 		}
 
 		userAgent := fmt.Sprintf("terraform-provider-cdap/%s", version)
@@ -99,4 +110,12 @@ func configureProvider(version string) schema.ConfigureFunc {
 			userAgent:     userAgent,
 		}, nil
 	}
+}
+
+func isGoogleAPIErrorWithCode(err error, codes ...int) bool {
+	gErr, ok := err.(*googleapi.Error)
+	if !ok {
+		return false
+	}
+	return slices.Contains(codes, gErr.Code)
 }
