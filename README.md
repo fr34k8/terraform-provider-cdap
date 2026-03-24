@@ -32,22 +32,29 @@ where `test_dir` is the path to a directory hosting test Terraform configs.
 
 Automated releases are handled by Github Actions.
 
-1. Choose a version. It should match the regex `^v[0-9]+\.[0-9]+\.[0-9]+$`.
+1. Get the version from `VERSION` file. 
+
+   ```bash 
+   export TAG_VERSION="v$(cat VERSION)"
+   ```   
+
+   Or for a manual version release, choose a version. It should match the regex `^v[0-9]+\.[0-9]+\.[0-9]+$`.
    That is, a leading "v", followed by three period-separated numbers.
 
    ```bash
-   version="v0.1.0"
+   TAG_VERSION="v0.1.0"
    ```
+   
 
-1. Create the Git tag.
+2. Create the Git tag.
 
    For binaries:
 
    ```bash
-   git tag -a "${version}" -m "${version}"
+   git tag -a "${TAG_VERSION}" -m "${TAG_VERSION}"
    ```
 
-1. Push the tag:
+3. Push the tag:
 
    ```bash
    git push origin --tags
