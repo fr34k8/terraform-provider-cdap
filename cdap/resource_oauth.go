@@ -55,11 +55,11 @@ func resourceOAuthProvider() *schema.Resource {
 			},
 			"client_id": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
 			},
 			"client_secret": {
 				Type:      schema.TypeString,
-				Required:  true,
+				Optional:  true,
 				Sensitive: true, // Terraform will hide this in the terminal output
 			},
 			"login_url": {
