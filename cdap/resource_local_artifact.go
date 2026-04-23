@@ -113,17 +113,15 @@ func uploadArtifact(config *Config, d *schema.ResourceData, a *artifact) error {
 }
 
 func uploadJar(config *Config, addr string, a *artifact) error {
-	req, err := http.NewRequest(http.MethodPost, addr, bytes.NewReader(a.jar))
-	if err != nil {
-		return err
+	headers := map[string]string{
+		"Artifact-Version": a.version,
 	}
-	req.Header = map[string][]string{}
-	req.Header.Add("Artifact-Version", a.version)
-	req.Header.Add("Artifact-Extends", strings.Join(a.config.Parents, "/"))
-	if _, err := httpCall(config, req); err != nil {
-		return err
+
+	if a.config != nil {
+		headers["Artifact-Extends"] = strings.Join(a.config.Parents, "/")
 	}
-	return nil
+
+	return uploadPluginJar(config, addr, a.jar, headers)
 }
 
 func uploadProps(config *Config, artifactAddr string, a *artifact) error {
@@ -227,4 +225,19 @@ func artifactExists(config *Config, name, namespace string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func uploadPluginJar(config *Config, addr string, jarBytes []byte, headers map[string]string) error {
+	req, err := http.NewRequest(http.MethodPost, addr, bytes.NewReader(jarBytes))
+	if err != nil {
+		return err
+	}
+
+	req.Header = map[string][]string{}
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
+
+	_, err = httpCall(config, req)
+	return err
 }
