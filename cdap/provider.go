@@ -53,6 +53,7 @@ func Provider(version string) *schema.Provider {
 			"cdap_streaming_program_run": resourceStreamingProgramRun(),
 			"cdap_gcs_artifact":          resourceGCSArtifact(),
 			"cdap_local_artifact":        resourceLocalArtifact(),
+			"cdap_local_jdbc_driver":     resourceJDBCDriver(),
 			"cdap_namespace":             resourceNamespace(),
 			"cdap_namespace_preferences": resourceNamespacePreferences(),
 			"cdap_profile":               resourceProfile(),
